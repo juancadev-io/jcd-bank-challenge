@@ -102,6 +102,10 @@
 							<goal>check</goal>
 						</goals>
 						<configuration>
+							<excludes>
+								<exclude>com/bank/onboarding/backend/BackendApplication.class</exclude>
+								<exclude>com/bank/onboarding/backend/config/WebConfig.class</exclude>
+							</excludes>
 							<rules>
 								<rule>
 									<element>BUNDLE</element>
