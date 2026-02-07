@@ -8,6 +8,7 @@ resource "aws_instance" "backend" {
   user_data = templatefile("${path.module}/user_data.tftpl", {
     aws_region         = var.aws_region
     ecr_repository_url = var.ecr_repository_url
+    ecr_registry_url   = split("/", var.ecr_repository_url)[0]
     encryption_key     = var.encryption_key
     log_group_name     = var.log_group_name
     metrics_namespace  = var.metrics_namespace
