@@ -68,45 +68,45 @@ module "ecr" {
 module "monitoring" {
   source = "./modules/monitoring"
 
-  name_prefix     = local.name_prefix
-  environment     = var.environment
-  instance_id     = module.compute.instance_id
-  alarm_email     = var.alarm_email
+  name_prefix       = local.name_prefix
+  environment       = var.environment
+  instance_id       = module.compute.instance_id
+  alarm_email       = var.alarm_email
   metrics_namespace = "${local.name_prefix}/CWAgent"
 }
 
 module "iam" {
   source = "./modules/iam"
 
-  name_prefix    = local.name_prefix
-  ecr_repo_arn   = module.ecr.repository_arn
-  log_group_arn  = module.monitoring.log_group_arn
+  name_prefix   = local.name_prefix
+  ecr_repo_arn  = module.ecr.repository_arn
+  log_group_arn = module.monitoring.log_group_arn
 }
 
 module "compute" {
   source = "./modules/compute"
 
-  name_prefix          = local.name_prefix
-  instance_type        = var.ec2_instance_type
-  ami_id               = data.aws_ami.amazon_linux_2023.id
-  subnet_id            = module.networking.private_subnet_ids[0]
-  security_group_id    = module.security.ec2_security_group_id
+  name_prefix           = local.name_prefix
+  instance_type         = var.ec2_instance_type
+  ami_id                = data.aws_ami.amazon_linux_2023.id
+  subnet_id             = module.networking.private_subnet_ids[0]
+  security_group_id     = module.security.ec2_security_group_id
   instance_profile_name = module.iam.instance_profile_name
-  ecr_repository_url   = module.ecr.repository_url
-  aws_region           = var.aws_region
-  encryption_key       = var.encryption_key
-  log_group_name       = module.monitoring.log_group_name
-  metrics_namespace    = "${local.name_prefix}/CWAgent"
+  ecr_repository_url    = module.ecr.repository_url
+  aws_region            = var.aws_region
+  encryption_key        = var.encryption_key
+  log_group_name        = module.monitoring.log_group_name
+  metrics_namespace     = "${local.name_prefix}/CWAgent"
 }
 
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  name_prefix              = local.name_prefix
-  ec2_private_ip           = module.compute.private_ip
-  private_subnet_ids       = module.networking.private_subnet_ids
+  name_prefix                = local.name_prefix
+  ec2_private_ip             = module.compute.private_ip
+  private_subnet_ids         = module.networking.private_subnet_ids
   vpc_link_security_group_id = module.security.vpc_link_security_group_id
-  log_group_arn            = module.monitoring.api_gateway_log_group_arn
+  log_group_arn              = module.monitoring.api_gateway_log_group_arn
 }
 
 module "storage" {
