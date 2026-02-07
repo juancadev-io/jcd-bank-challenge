@@ -126,4 +126,15 @@ class CustomerControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").exists());
     }
+
+    @Test
+    void getCustomerById_unexpectedError_returns500() throws Exception {
+        when(customerService.getCustomerById(1L))
+                .thenThrow(new RuntimeException("Unexpected DB error"));
+
+        mockMvc.perform(get("/api/customers/1"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("An unexpected error occurred"))
+                .andExpect(jsonPath("$.details").value("Unexpected DB error"));
+    }
 }

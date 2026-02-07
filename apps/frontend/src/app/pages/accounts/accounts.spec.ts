@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AccountsPage } from './accounts';
 import { CustomerService } from '../../services/customer.service';
 import { AccountService } from '../../services/account.service';
@@ -73,6 +73,28 @@ describe('AccountsPage', () => {
     expect(fixture.componentInstance.rows()[0].account).toBeNull();
   });
 
+  it('should render no-account row with create button', () => {
+    mockAccountService.getAll.mockReturnValue(of([]));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.no-account')?.textContent).toContain('Sin cuenta');
+    expect(el.querySelector('.btn-create')).toBeTruthy();
+  });
+
+  it('should render empty state when no customers', () => {
+    mockCustomerService.getAll.mockReturnValue(of([]));
+    mockAccountService.getAll.mockReturnValue(of([]));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('No hay clientes registrados');
+  });
+
   it('should handle customer load error', () => {
     mockCustomerService.getAll.mockReturnValue(throwError(() => new Error('fail')));
 
@@ -100,7 +122,7 @@ describe('AccountsPage', () => {
     expect(mockAccountService.create).toHaveBeenCalledWith({ customerId: 1 });
   });
 
-  it('should handle create account error', () => {
+  it('should handle create account error with message', () => {
     mockAccountService.create.mockReturnValue(
       throwError(() => ({ error: { message: 'Already has account' } })),
     );
@@ -110,7 +132,18 @@ describe('AccountsPage', () => {
 
     fixture.componentInstance.createAccount(1);
 
-    expect(fixture.componentInstance.messageType()).toBe('error');
+    expect(fixture.componentInstance.message()).toBe('Already has account');
+  });
+
+  it('should handle create account error without message', () => {
+    mockAccountService.create.mockReturnValue(throwError(() => new Error('network')));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.createAccount(1);
+
+    expect(fixture.componentInstance.message()).toBe('Error al crear cuenta');
   });
 
   it('should toggle status from ACTIVE to INACTIVE', () => {
@@ -133,9 +166,30 @@ describe('AccountsPage', () => {
     expect(mockAccountService.updateStatus).toHaveBeenCalledWith(1, 'ACTIVE');
   });
 
-  it('should handle toggle status error', () => {
+  it('should render INACTIVE account with Activar button', () => {
+    const inactiveAccount = { ...mockAccount, status: 'INACTIVE' };
+    mockAccountService.getAll.mockReturnValue(of([inactiveAccount]));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.btn-activate')?.textContent).toContain('Activar');
+    expect(el.querySelector('.badge.inactive')).toBeTruthy();
+  });
+
+  it('should render ACTIVE account with Bloquear button', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.btn-block')?.textContent).toContain('Bloquear');
+    expect(el.querySelector('.badge.active')).toBeTruthy();
+  });
+
+  it('should handle toggle status error with message', () => {
     mockAccountService.updateStatus.mockReturnValue(
-      throwError(() => ({ error: { message: 'Error' } })),
+      throwError(() => ({ error: { message: 'Forbidden' } })),
     );
 
     const fixture = TestBed.createComponent(AccountsPage);
@@ -143,6 +197,77 @@ describe('AccountsPage', () => {
 
     fixture.componentInstance.toggleStatus(mockAccount);
 
-    expect(fixture.componentInstance.messageType()).toBe('error');
+    expect(fixture.componentInstance.message()).toBe('Forbidden');
+  });
+
+  it('should handle toggle status error without message', () => {
+    mockAccountService.updateStatus.mockReturnValue(throwError(() => new Error('network')));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.toggleStatus(mockAccount);
+
+    expect(fixture.componentInstance.message()).toBe('Error al actualizar estado');
+  });
+
+  it('should display success message in template', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.createAccount(1);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.alert.success')).toBeTruthy();
+  });
+
+  it('should render loading state', () => {
+    const pending$ = new Subject<Customer[]>();
+    mockCustomerService.getAll.mockReturnValue(pending$);
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Cargando...');
+  });
+
+  it('should trigger createAccount via DOM click', () => {
+    mockAccountService.getAll.mockReturnValue(of([]));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const createBtn = el.querySelector('.btn-create') as HTMLButtonElement;
+    createBtn.click();
+
+    expect(mockAccountService.create).toHaveBeenCalledWith({ customerId: 1 });
+  });
+
+  it('should trigger toggleStatus via DOM click on Bloquear', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const blockBtn = el.querySelector('.btn-block') as HTMLButtonElement;
+    blockBtn.click();
+
+    expect(mockAccountService.updateStatus).toHaveBeenCalledWith(1, 'INACTIVE');
+  });
+
+  it('should trigger toggleStatus via DOM click on Activar', () => {
+    const inactiveAccount = { ...mockAccount, status: 'INACTIVE' };
+    mockAccountService.getAll.mockReturnValue(of([inactiveAccount]));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const activateBtn = el.querySelector('.btn-activate') as HTMLButtonElement;
+    activateBtn.click();
+
+    expect(mockAccountService.updateStatus).toHaveBeenCalledWith(1, 'ACTIVE');
   });
 });

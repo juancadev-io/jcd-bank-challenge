@@ -38,8 +38,15 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Run tests
-        run: ./mvnw test -B
+      - name: Run tests with coverage check
+        run: ./mvnw clean verify -B
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: apps/backend/target/site/jacoco/
 
   test-frontend:
     needs: detect-changes
@@ -61,8 +68,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npx ng test
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: apps/frontend/coverage/
 
   # Gate job - this is the one to set as required status check in GitHub
   validate:

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { CustomersPage } from './customers';
 import { CustomerService } from '../../services/customer.service';
 import { AccountService } from '../../services/account.service';
@@ -50,6 +50,25 @@ describe('CustomersPage', () => {
     expect(fixture.componentInstance.customers()).toEqual([mockCustomer]);
   });
 
+  it('should render customer table', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('table')).toBeTruthy();
+    expect(el.textContent).toContain('Juan Perez');
+  });
+
+  it('should render empty state when no customers', () => {
+    mockCustomerService.getAll.mockReturnValue(of([]));
+
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('No hay clientes registrados');
+  });
+
   it('should handle load error', () => {
     mockCustomerService.getAll.mockReturnValue(throwError(() => new Error('fail')));
 
@@ -76,6 +95,7 @@ describe('CustomersPage', () => {
 
     expect(mockCustomerService.create).toHaveBeenCalled();
     expect(mockAccountService.create).not.toHaveBeenCalled();
+    expect(component.message()).toBe('Cliente creado exitosamente');
   });
 
   it('should submit and create customer with account', () => {
@@ -95,9 +115,10 @@ describe('CustomersPage', () => {
 
     expect(mockCustomerService.create).toHaveBeenCalled();
     expect(mockAccountService.create).toHaveBeenCalledWith({ customerId: 1 });
+    expect(component.message()).toBe('Cliente y cuenta creados exitosamente');
   });
 
-  it('should handle create customer error', () => {
+  it('should handle create customer error with message', () => {
     mockCustomerService.create.mockReturnValue(
       throwError(() => ({ error: { message: 'Duplicate' } })),
     );
@@ -116,10 +137,30 @@ describe('CustomersPage', () => {
 
     component.onSubmit();
 
-    expect(component.messageType()).toBe('error');
+    expect(component.message()).toBe('Duplicate');
   });
 
-  it('should handle create account error after customer success', () => {
+  it('should handle create customer error without message', () => {
+    mockCustomerService.create.mockReturnValue(throwError(() => new Error('network')));
+
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.setValue({
+      documentType: 'CC',
+      documentNumber: '999',
+      fullName: 'Test',
+      email: 'test@test.com',
+      createAccount: false,
+    });
+
+    component.onSubmit();
+
+    expect(component.message()).toBe('Error al crear cliente');
+  });
+
+  it('should handle create account error after customer success with message', () => {
     mockAccountService.create.mockReturnValue(
       throwError(() => ({ error: { message: 'Account error' } })),
     );
@@ -138,7 +179,27 @@ describe('CustomersPage', () => {
 
     component.onSubmit();
 
-    expect(component.messageType()).toBe('error');
+    expect(component.message()).toContain('Account error');
+  });
+
+  it('should handle create account error after customer success without message', () => {
+    mockAccountService.create.mockReturnValue(throwError(() => new Error('network')));
+
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.setValue({
+      documentType: 'CC',
+      documentNumber: '999',
+      fullName: 'Test',
+      email: 'test@test.com',
+      createAccount: true,
+    });
+
+    component.onSubmit();
+
+    expect(component.message()).toContain('Error desconocido');
   });
 
   it('should not submit if form is invalid', () => {
@@ -148,5 +209,87 @@ describe('CustomersPage', () => {
     fixture.componentInstance.onSubmit();
 
     expect(mockCustomerService.create).not.toHaveBeenCalled();
+  });
+
+  it('should disable submit button when form is invalid', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const button = el.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+
+  it('should display success message in template', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.setValue({
+      documentType: 'CC',
+      documentNumber: '999',
+      fullName: 'Test',
+      email: 'test@test.com',
+      createAccount: false,
+    });
+
+    component.onSubmit();
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.alert.success')).toBeTruthy();
+  });
+
+  it('should render loading state in list', () => {
+    const pending$ = new Subject<Customer[]>();
+    mockCustomerService.getAll.mockReturnValue(pending$);
+
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Cargando...');
+  });
+
+  it('should show Creando... text in button when loading', () => {
+    const pending$ = new Subject<Customer[]>();
+    mockCustomerService.getAll.mockReturnValue(pending$);
+
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const button = el.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(button.textContent).toContain('Creando...');
+  });
+
+  it('should show Crear Cliente text in button when not loading', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const button = el.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(button.textContent).toContain('Crear Cliente');
+  });
+
+  it('should submit form via DOM', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.setValue({
+      documentType: 'CE',
+      documentNumber: '888',
+      fullName: 'Ana',
+      email: 'ana@test.com',
+      createAccount: false,
+    });
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const button = el.querySelector('button[type="submit"]') as HTMLButtonElement;
+    button.click();
+
+    expect(mockCustomerService.create).toHaveBeenCalled();
   });
 });
