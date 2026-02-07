@@ -15,23 +15,30 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      infra: ${{ steps.filter.outputs.infra }}
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      infra: ${{ steps.changes.outputs.infra }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'apps/backend/**'
-            frontend:
-              - 'apps/frontend/**'
-            infra:
-              - 'infra/**'
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger — deploying everything"
+            echo "backend=true" >> $GITHUB_OUTPUT
+            echo "frontend=true" >> $GITHUB_OUTPUT
+            echo "infra=true" >> $GITHUB_OUTPUT
+          else
+            echo "Push trigger — detecting changed paths"
+            CHANGED=$(git diff --name-only HEAD~1 HEAD)
+            echo "$CHANGED"
+            echo "backend=$( echo "$CHANGED" | grep -q '^apps/backend/' && echo true || echo false )" >> $GITHUB_OUTPUT
+            echo "frontend=$( echo "$CHANGED" | grep -q '^apps/frontend/' && echo true || echo false )" >> $GITHUB_OUTPUT
+            echo "infra=$( echo "$CHANGED" | grep -q '^infra/' && echo true || echo false )" >> $GITHUB_OUTPUT
+          fi
 
   # --- Infrastructure ---
 
