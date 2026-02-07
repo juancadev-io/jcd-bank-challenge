@@ -26,3 +26,77 @@ resource "aws_instance" "backend" {
 
   tags = { Name = "${var.name_prefix}-backend" }
 }
+
+# --- Schedule: auto start/stop to save costs ---
+# Monday-Friday 8am-5pm Colombia time (America/Bogota)
+
+resource "aws_iam_role" "scheduler" {
+  name = "${var.name_prefix}-ec2-scheduler"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "scheduler.amazonaws.com" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "scheduler" {
+  name = "ec2-start-stop"
+  role = aws_iam_role.scheduler.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:StartInstances", "ec2:StopInstances"]
+        Resource = aws_instance.backend.arn
+      }
+    ]
+  })
+}
+
+resource "aws_scheduler_schedule" "start_ec2" {
+  name = "${var.name_prefix}-start-ec2"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression          = "cron(0 8 ? * MON-FRI *)"
+  schedule_expression_timezone = "America/Bogota"
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:ec2:startInstances"
+    role_arn = aws_iam_role.scheduler.arn
+
+    input = jsonencode({
+      InstanceIds = [aws_instance.backend.id]
+    })
+  }
+}
+
+resource "aws_scheduler_schedule" "stop_ec2" {
+  name = "${var.name_prefix}-stop-ec2"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression          = "cron(0 17 ? * MON-FRI *)"
+  schedule_expression_timezone = "America/Bogota"
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:ec2:stopInstances"
+    role_arn = aws_iam_role.scheduler.arn
+
+    input = jsonencode({
+      InstanceIds = [aws_instance.backend.id]
+    })
+  }
+}
