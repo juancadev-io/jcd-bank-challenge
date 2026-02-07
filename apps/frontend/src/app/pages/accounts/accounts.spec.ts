@@ -187,6 +187,25 @@ describe('AccountsPage', () => {
     expect(el.querySelector('.badge.active')).toBeTruthy();
   });
 
+  it('should show status in Spanish as Activa', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.badge.active')?.textContent?.trim()).toBe('Activa');
+  });
+
+  it('should show status in Spanish as Inactiva', () => {
+    const inactiveAccount = { ...mockAccount, status: 'INACTIVE' };
+    mockAccountService.getAll.mockReturnValue(of([inactiveAccount]));
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.badge.inactive')?.textContent?.trim()).toBe('Inactiva');
+  });
+
   it('should handle toggle status error with message', () => {
     mockAccountService.updateStatus.mockReturnValue(
       throwError(() => ({ error: { message: 'Forbidden' } })),

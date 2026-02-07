@@ -94,7 +94,7 @@ class AccountControllerTest {
     @Test
     void createAccount_duplicate_returns400() throws Exception {
         when(accountService.createAccount(any()))
-                .thenThrow(new BusinessException("Customer with id 1 already has an account"));
+                .thenThrow(new BusinessException("El cliente con id 1 ya tiene una cuenta asociada"));
 
         AccountCreateDTO request = new AccountCreateDTO(1L);
 
@@ -102,7 +102,7 @@ class AccountControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Customer with id 1 already has an account"));
+                .andExpect(jsonPath("$.message").value("El cliente con id 1 ya tiene una cuenta asociada"));
     }
 
     @Test

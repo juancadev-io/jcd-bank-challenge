@@ -272,6 +272,43 @@ describe('CustomersPage', () => {
     expect(button.textContent).toContain('Crear Cliente');
   });
 
+  it('should show validation error for required documentNumber', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.get('documentNumber')?.markAsTouched();
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('El numero de documento es obligatorio');
+  });
+
+  it('should show validation error for invalid email format', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.get('email')?.setValue('not-an-email');
+    component.form.get('email')?.markAsTouched();
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('El formato del email no es valido');
+  });
+
+  it('should show required email error when empty', () => {
+    const fixture = TestBed.createComponent(CustomersPage);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.form.get('email')?.markAsTouched();
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('El email es obligatorio');
+  });
+
   it('should submit form via DOM', () => {
     const fixture = TestBed.createComponent(CustomersPage);
     fixture.detectChanges();

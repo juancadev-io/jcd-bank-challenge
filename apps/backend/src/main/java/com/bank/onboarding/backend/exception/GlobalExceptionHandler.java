@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("message", "Validation failed");
+        body.put("message", "Error de validacion");
         body.put("errors", errors);
         body.put("path", request.getDescription(false).replace("uri=", ""));
 
@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        body.put("message", "An unexpected error occurred");
+        body.put("message", "Ocurrio un error inesperado");
         body.put("details", ex.getMessage());
         body.put("path", request.getDescription(false).replace("uri=", ""));
 

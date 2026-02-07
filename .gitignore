@@ -1,3 +1,5 @@
+base_accessKeys.csv
+
 # Maven
 target/
 *.jar

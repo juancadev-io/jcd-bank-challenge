@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 public class AccountCreateDTO {
 
-    @NotNull(message = "Customer ID is required")
+    @NotNull(message = "El ID del cliente es obligatorio")
     private Long customerId;
 
     public AccountCreateDTO() {

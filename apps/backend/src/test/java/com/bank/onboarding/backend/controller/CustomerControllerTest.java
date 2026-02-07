@@ -78,7 +78,7 @@ class CustomerControllerTest {
     @Test
     void createCustomer_duplicateDocument_returns400() throws Exception {
         when(customerService.createCustomer(any()))
-                .thenThrow(new BusinessException("A customer with document number '123456' already exists"));
+                .thenThrow(new BusinessException("Ya existe un cliente con el numero de documento '123456'"));
 
         CustomerCreateDTO request = new CustomerCreateDTO("CC", "123456", "Juan Perez", "juan@test.com");
 
@@ -86,7 +86,7 @@ class CustomerControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("A customer with document number '123456' already exists"));
+                .andExpect(jsonPath("$.message").value("Ya existe un cliente con el numero de documento '123456'"));
     }
 
     @Test
@@ -134,7 +134,7 @@ class CustomerControllerTest {
 
         mockMvc.perform(get("/api/customers/1"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.message").value("An unexpected error occurred"))
+                .andExpect(jsonPath("$.message").value("Ocurrio un error inesperado"))
                 .andExpect(jsonPath("$.details").value("Unexpected DB error"));
     }
 }

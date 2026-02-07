@@ -1,0 +1,110 @@
+#!/bin/bash
+set -euxo pipefail
+
+exec > >(tee /var/log/user-data.log) 2>&1
+
+# Install Docker and CloudWatch Agent
+dnf update -y
+dnf install -y docker amazon-cloudwatch-agent
+systemctl enable docker
+systemctl start docker
+usermod -aG docker ec2-user
+
+# Configure CloudWatch Agent
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWCONFIG'
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/user-data.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "ec2/user-data",
+            "retention_in_days": 14
+          },
+          {
+            "file_path": "/var/log/backend-container.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "ec2/backend-app",
+            "retention_in_days": 14
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "namespace": "${metrics_namespace}",
+    "metrics_collected": {
+      "cpu": {
+        "measurement": ["cpu_usage_active"],
+        "metrics_collection_interval": 60
+      },
+      "mem": {
+        "measurement": ["mem_used_percent"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "metrics_collection_interval": 300
+      }
+    }
+  }
+}
+CWCONFIG
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+
+# Login to ECR
+aws ecr get-login-password --region ${aws_region} | \
+  docker login --username AWS --password-stdin ${ecr_registry_url}
+
+# Pull and run backend container
+docker pull ${ecr_repository_url}:latest || true
+
+if docker image inspect ${ecr_repository_url}:latest >/dev/null 2>&1; then
+  docker run -d \
+    --name bank-backend \
+    --restart unless-stopped \
+    -p 8080:8080 \
+    -e SERVER_PORT=8080 \
+    -e SPRING_PROFILES_ACTIVE=prod \
+    -e ENCRYPTION_KEY="${encryption_key}" \
+    --log-driver json-file \
+    --log-opt max-size=10m \
+    --log-opt max-file=3 \
+    ${ecr_repository_url}:latest \
+    2>&1 | tee /var/log/backend-container.log
+else
+  echo "No image available yet. Push an image to ECR and run update-backend.sh" > /var/log/backend-container.log
+fi
+
+# Create update script for CI/CD
+cat > /home/ec2-user/update-backend.sh <<'SCRIPT'
+#!/bin/bash
+set -euxo pipefail
+aws ecr get-login-password --region ${aws_region} | \
+  docker login --username AWS --password-stdin ${ecr_registry_url}
+docker pull ${ecr_repository_url}:latest
+docker stop bank-backend || true
+docker rm bank-backend || true
+docker run -d \
+  --name bank-backend \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -e SERVER_PORT=8080 \
+  -e SPRING_PROFILES_ACTIVE=prod \
+  -e ENCRYPTION_KEY="${encryption_key}" \
+  --log-driver json-file \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
+  ${ecr_repository_url}:latest
+docker image prune -f
+SCRIPT
+chmod +x /home/ec2-user/update-backend.sh
