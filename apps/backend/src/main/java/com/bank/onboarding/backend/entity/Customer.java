@@ -1,5 +1,6 @@
 package com.bank.onboarding.backend.entity;
 
+import com.bank.onboarding.backend.config.CryptoConverter;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -14,13 +15,16 @@ public class Customer {
     @Column(name = "document_type", nullable = false, length = 3)
     private String documentType;
 
-    @Column(name = "document_number", nullable = false, unique = true, length = 50)
+    @Convert(converter = CryptoConverter.class)
+    @Column(name = "document_number", nullable = false, unique = true, length = 255)
     private String documentNumber;
 
-    @Column(name = "full_name", nullable = false)
+    @Convert(converter = CryptoConverter.class)
+    @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 
-    @Column(name = "email", nullable = false, unique = true)
+    @Convert(converter = CryptoConverter.class)
+    @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
     @Column(name = "created_at", nullable = false, updatable = false)
