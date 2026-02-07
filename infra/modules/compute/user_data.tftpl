@@ -63,7 +63,7 @@ CWCONFIG
 
 # Login to ECR
 aws ecr get-login-password --region ${aws_region} | \
-  docker login --username AWS --password-stdin ${ecr_repository_url%/*}
+  docker login --username AWS --password-stdin ${ecr_registry_url}
 
 # Pull and run backend container
 docker pull ${ecr_repository_url}:latest || true
@@ -90,7 +90,7 @@ cat > /home/ec2-user/update-backend.sh <<'SCRIPT'
 #!/bin/bash
 set -euxo pipefail
 aws ecr get-login-password --region ${aws_region} | \
-  docker login --username AWS --password-stdin ${ecr_repository_url%/*}
+  docker login --username AWS --password-stdin ${ecr_registry_url}
 docker pull ${ecr_repository_url}:latest
 docker stop bank-backend || true
 docker rm bank-backend || true
