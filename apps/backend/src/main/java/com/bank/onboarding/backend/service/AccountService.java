@@ -32,12 +32,12 @@ public class AccountService {
 
         if (!customerRepository.existsById(dto.getCustomerId())) {
             log.warn("Customer not found with id={}", dto.getCustomerId());
-            throw new ResourceNotFoundException("Customer", "id", dto.getCustomerId());
+            throw new ResourceNotFoundException("Cliente no encontrado con id: " + dto.getCustomerId());
         }
 
         if (accountRepository.existsByCustomerId(dto.getCustomerId())) {
             log.warn("Customer id={} already has an account", dto.getCustomerId());
-            throw new BusinessException("Customer with id " + dto.getCustomerId() + " already has an account");
+            throw new BusinessException("El cliente con id " + dto.getCustomerId() + " ya tiene una cuenta asociada");
         }
 
         String accountNumber = generateAccountNumber();
@@ -69,7 +69,7 @@ public class AccountService {
         Account account = accountRepository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Account not found with id={}", id);
-                    return new ResourceNotFoundException("Account", "id", id);
+                    return new ResourceNotFoundException("Cuenta no encontrada con id: " + id);
                 });
         account.setStatus(status);
         Account saved = accountRepository.save(account);

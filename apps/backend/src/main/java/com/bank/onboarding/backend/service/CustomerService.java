@@ -28,12 +28,12 @@ public class CustomerService {
 
         if (customerRepository.existsByDocumentNumber(dto.getDocumentNumber())) {
             log.warn("Duplicate document number detected");
-            throw new BusinessException("A customer with document number '" + dto.getDocumentNumber() + "' already exists");
+            throw new BusinessException("Ya existe un cliente con el numero de documento '" + dto.getDocumentNumber() + "'");
         }
 
         if (customerRepository.existsByEmail(dto.getEmail())) {
             log.warn("Duplicate email detected");
-            throw new BusinessException("A customer with email '" + dto.getEmail() + "' already exists");
+            throw new BusinessException("Ya existe un cliente con el email '" + dto.getEmail() + "'");
         }
 
         Customer customer = new Customer(
@@ -63,7 +63,7 @@ public class CustomerService {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Customer not found with id={}", id);
-                    return new ResourceNotFoundException("Customer", "id", id);
+                    return new ResourceNotFoundException("Cliente no encontrado con id: " + id);
                 });
         return new CustomerResponseDTO(customer);
     }
