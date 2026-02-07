@@ -1,5 +1,6 @@
 package com.bank.onboarding.backend.entity;
 
+import com.bank.onboarding.backend.config.CryptoConverter;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,7 +16,8 @@ public class Account {
     @Column(name = "customer_id", nullable = false, unique = true)
     private Long customerId;
 
-    @Column(name = "account_number", nullable = false, unique = true, length = 50)
+    @Convert(converter = CryptoConverter.class)
+    @Column(name = "account_number", nullable = false, unique = true, length = 255)
     private String accountNumber;
 
     @Column(name = "status", nullable = false, length = 20)
