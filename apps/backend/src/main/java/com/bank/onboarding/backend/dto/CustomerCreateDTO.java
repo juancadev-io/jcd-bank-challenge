@@ -6,18 +6,18 @@ import jakarta.validation.constraints.Pattern;
 
 public class CustomerCreateDTO {
 
-    @NotBlank(message = "Document type is required")
-    @Pattern(regexp = "CC|CE|PAS", message = "Document type must be CC, CE or PAS")
+    @NotBlank(message = "El tipo de documento es obligatorio")
+    @Pattern(regexp = "CC|CE|PAS", message = "El tipo de documento debe ser CC, CE o PAS")
     private String documentType;
 
-    @NotBlank(message = "Document number is required")
+    @NotBlank(message = "El numero de documento es obligatorio")
     private String documentNumber;
 
-    @NotBlank(message = "Full name is required")
+    @NotBlank(message = "El nombre completo es obligatorio")
     private String fullName;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El email debe tener un formato valido")
     private String email;
 
     public CustomerCreateDTO() {

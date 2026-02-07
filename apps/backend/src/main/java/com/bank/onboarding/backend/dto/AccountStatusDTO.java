@@ -5,8 +5,8 @@ import jakarta.validation.constraints.Pattern;
 
 public class AccountStatusDTO {
 
-    @NotBlank(message = "Status is required")
-    @Pattern(regexp = "ACTIVE|INACTIVE", message = "Status must be ACTIVE or INACTIVE")
+    @NotBlank(message = "El estado es obligatorio")
+    @Pattern(regexp = "ACTIVE|INACTIVE", message = "El estado debe ser ACTIVE o INACTIVE")
     private String status;
 
     public AccountStatusDTO() {
