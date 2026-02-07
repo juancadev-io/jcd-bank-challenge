@@ -38,11 +38,8 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Run tests with coverage
-        run: ./mvnw clean test -B
-
-      - name: Check coverage
-        run: ./mvnw jacoco:check -B
+      - name: Run tests with coverage check
+        run: ./mvnw clean verify -B
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
