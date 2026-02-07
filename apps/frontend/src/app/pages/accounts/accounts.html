@@ -1,0 +1,59 @@
+<div class="page">
+  <h2>Cuentas</h2>
+
+  @if (message()) {
+    <div class="alert" [class.success]="messageType() === 'success'" [class.error]="messageType() === 'error'">
+      {{ message() }}
+    </div>
+  }
+
+  @if (loading()) {
+    <p>Cargando...</p>
+  } @else if (rows().length === 0) {
+    <p>No hay clientes registrados.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Documento</th>
+          <th>N. Cuenta</th>
+          <th>Estado</th>
+          <th>Balance</th>
+          <th>Fecha creacion</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.customer.id) {
+          <tr>
+            <td>{{ row.customer.fullName }}</td>
+            <td>{{ row.customer.documentType }}-{{ row.customer.documentNumber }}</td>
+            @if (row.account) {
+              <td>{{ row.account.accountNumber }}</td>
+              <td>
+                <span class="badge" [class.active]="row.account.status === 'ACTIVE'" [class.inactive]="row.account.status === 'INACTIVE'">
+                  {{ row.account.status }}
+                </span>
+              </td>
+              <td>{{ row.account.balance | number: '1.2-2' }}</td>
+              <td>{{ row.account.createdAt | date: 'short' }}</td>
+              <td>
+                @if (row.account.status === 'ACTIVE') {
+                  <button class="btn-block" (click)="toggleStatus(row.account)">Bloquear</button>
+                } @else {
+                  <button class="btn-activate" (click)="toggleStatus(row.account)">Activar</button>
+                }
+              </td>
+            } @else {
+              <td colspan="4" class="no-account">Sin cuenta</td>
+              <td>
+                <button class="btn-create" (click)="createAccount(row.customer.id)">Crear cuenta</button>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

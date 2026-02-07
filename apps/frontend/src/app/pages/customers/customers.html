@@ -1,0 +1,84 @@
+<div class="page">
+  <h2>Clientes</h2>
+
+  @if (message()) {
+    <div class="alert" [class.success]="messageType() === 'success'" [class.error]="messageType() === 'error'">
+      {{ message() }}
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="documentType">Tipo documento</label>
+        <select id="documentType" formControlName="documentType">
+          <option value="CC">CC</option>
+          <option value="CE">CE</option>
+          <option value="PAS">PAS</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="documentNumber">Numero documento</label>
+        <input id="documentNumber" formControlName="documentNumber" placeholder="Ej: 1234567890" />
+      </div>
+
+      <div class="form-group">
+        <label for="fullName">Nombre completo</label>
+        <input id="fullName" formControlName="fullName" placeholder="Ej: Juan Perez" />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input id="email" formControlName="email" type="email" placeholder="Ej: juan@email.com" />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <label class="checkbox-label">
+        <input type="checkbox" formControlName="createAccount" />
+        Crear cuenta automaticamente
+      </label>
+      <button type="submit" [disabled]="form.invalid || loading()">
+        @if (loading()) {
+          Creando...
+        } @else {
+          Crear Cliente
+        }
+      </button>
+    </div>
+  </form>
+
+  <h3>Listado de clientes</h3>
+
+  @if (loading()) {
+    <p>Cargando...</p>
+  } @else if (customers().length === 0) {
+    <p>No hay clientes registrados.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tipo</th>
+          <th>Documento</th>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Fecha creacion</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of customers(); track c.id) {
+          <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.documentType }}</td>
+            <td>{{ c.documentNumber }}</td>
+            <td>{{ c.fullName }}</td>
+            <td>{{ c.email }}</td>
+            <td>{{ c.createdAt | date: 'short' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

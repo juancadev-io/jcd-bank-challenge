@@ -1,0 +1,42 @@
+.badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge.inactive {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.no-account {
+  color: #999;
+  font-style: italic;
+}
+
+button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: white;
+}
+
+.btn-create {
+  background: #1976d2;
+}
+
+.btn-block {
+  background: #e53935;
+}
+
+.btn-activate {
+  background: #43a047;
+}
