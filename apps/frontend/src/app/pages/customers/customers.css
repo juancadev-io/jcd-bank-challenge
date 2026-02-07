@@ -61,3 +61,9 @@ button:disabled {
   background: #999;
   cursor: not-allowed;
 }
+
+.field-error {
+  color: #d32f2f;
+  font-size: 12px;
+  margin-top: 4px;
+}
