@@ -33,7 +33,7 @@
               <td>{{ row.account.accountNumber }}</td>
               <td>
                 <span class="badge" [class.active]="row.account.status === 'ACTIVE'" [class.inactive]="row.account.status === 'INACTIVE'">
-                  {{ row.account.status }}
+                  {{ row.account.status === 'ACTIVE' ? 'Activa' : 'Inactiva' }}
                 </span>
               </td>
               <td>{{ row.account.balance | number: '1.2-2' }}</td>
