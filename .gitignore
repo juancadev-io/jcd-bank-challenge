@@ -101,3 +101,7 @@ build/
 TODO.md
 temp/
 tmp/
+
+# AI assistants
+CLAUDE.md
+.github/copilot-instructions.md
