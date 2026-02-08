@@ -1,93 +1,19 @@
-name: Validate PR
+name: Validate Infrastructure
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/validate-infra.yml'
+      - '.github/workflows/deploy-infra.yml'
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      infra: ${{ steps.filter.outputs.infra }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'apps/backend/**'
-            frontend:
-              - 'apps/frontend/**'
-            infra:
-              - 'infra/**'
-
-  test-backend:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/backend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Run tests with coverage check
-        run: ./mvnw clean verify -B
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backend-coverage-report
-          path: apps/backend/target/site/jacoco/
-
-  test-frontend:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: apps/frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: frontend-coverage-report
-          path: apps/frontend/coverage/
-
-  plan-infra:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.infra == 'true'
+  plan:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -185,17 +111,3 @@ jobs:
       - name: Fail if plan failed
         if: steps.plan.outcome == 'failure'
         run: exit 1
-
-  # Gate job — set as required status check in GitHub
-  validate:
-    needs: [test-backend, test-frontend, plan-infra]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check results
-        run: |
-          if [[ "${{ needs.test-backend.result }}" == "failure" || "${{ needs.test-frontend.result }}" == "failure" || "${{ needs.plan-infra.result }}" == "failure" ]]; then
-            echo "One or more jobs failed"
-            exit 1
-          fi
-          echo "All checks passed"
