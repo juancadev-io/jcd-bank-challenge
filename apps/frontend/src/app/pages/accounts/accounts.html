@@ -27,18 +27,18 @@
       <tbody>
         @for (row of rows(); track row.customer.id) {
           <tr>
-            <td>{{ row.customer.fullName }}</td>
-            <td>{{ row.customer.documentType }}-{{ row.customer.documentNumber }}</td>
+            <td data-label="Cliente">{{ row.customer.fullName }}</td>
+            <td data-label="Documento">{{ row.customer.documentType }}-{{ row.customer.documentNumber }}</td>
             @if (row.account) {
-              <td>{{ row.account.accountNumber }}</td>
-              <td>
+              <td data-label="N. Cuenta">{{ row.account.accountNumber }}</td>
+              <td data-label="Estado">
                 <span class="badge" [class.active]="row.account.status === 'ACTIVE'" [class.inactive]="row.account.status === 'INACTIVE'">
                   {{ row.account.status === 'ACTIVE' ? 'Activa' : 'Inactiva' }}
                 </span>
               </td>
-              <td>{{ row.account.balance | number: '1.2-2' }}</td>
-              <td>{{ row.account.createdAt | date: 'short' }}</td>
-              <td>
+              <td data-label="Balance">{{ row.account.balance | number: '1.2-2' }}</td>
+              <td data-label="Fecha creación">{{ row.account.createdAt | date: 'short' }}</td>
+              <td data-label="Acciones">
                 @if (row.account.status === 'ACTIVE') {
                   <button class="btn-block" (click)="toggleStatus(row.account)">Bloquear</button>
                 } @else {
@@ -46,8 +46,8 @@
                 }
               </td>
             } @else {
-              <td colspan="4" class="no-account">Sin cuenta</td>
-              <td>
+              <td colspan="4" class="no-account" data-label="Cuenta">Sin cuenta</td>
+              <td data-label="Acciones">
                 <button class="btn-create" (click)="createAccount(row.customer.id)">Crear cuenta</button>
               </td>
             }

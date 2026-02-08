@@ -85,12 +85,12 @@
       <tbody>
         @for (c of customers(); track c.id) {
           <tr>
-            <td>{{ c.id }}</td>
-            <td>{{ c.documentType }}</td>
-            <td>{{ c.documentNumber }}</td>
-            <td>{{ c.fullName }}</td>
-            <td>{{ c.email }}</td>
-            <td>{{ c.createdAt | date: 'short' }}</td>
+            <td data-label="ID">{{ c.id }}</td>
+            <td data-label="Tipo">{{ c.documentType }}</td>
+            <td data-label="Documento">{{ c.documentNumber }}</td>
+            <td data-label="Nombre">{{ c.fullName }}</td>
+            <td data-label="Email">{{ c.email }}</td>
+            <td data-label="Fecha creación">{{ c.createdAt | date: 'short' }}</td>
           </tr>
         }
       </tbody>
