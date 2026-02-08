@@ -40,3 +40,13 @@ button {
 .btn-activate {
   background: #43a047;
 }
+
+@media (max-width: 768px) {
+  .no-account {
+    text-align: right;
+  }
+
+  td[colspan] {
+    display: flex;
+  }
+}
