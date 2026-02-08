@@ -1,263 +1,228 @@
 # Bank Onboarding Portal
 
-Portal interno de onboarding bancario para registro de clientes nuevos y apertura de cuentas básicas.
+Portal interno de onboarding bancario para registro de clientes y apertura de cuentas.
 
-## Stack Técnico
+**Live:** [bank.juancamilofarfan.com](https://bank.juancamilofarfan.com)
 
-- **Backend**: Java 21 con Spring Boot 4.0.2
-- **Frontend**: Angular
-- **Base de datos**: PostgreSQL 16
-- **Containerización**: Docker & Docker Compose
+## Stack
 
-## Estructura del Proyecto
+| Capa | Tecnologia |
+|------|-----------|
+| Backend | Java 21 + Spring Boot 4.0.2 |
+| Frontend | Angular 21 (standalone components) |
+| Base de datos | H2 en memoria |
+| Infraestructura | Terraform + AWS (EC2, ECR, API Gateway, S3, CloudFront) |
+| DNS/CDN | CloudFront + Cloudflare |
+| CI/CD | GitHub Actions (7 workflows) |
+| Contenedores | Docker multi-stage builds |
+
+## Estructura del monorepo
 
 ```
-├── apps/
-│   ├── backend/          # Spring Boot REST API
-│   └── frontend/         # Angular SPA
-├── database/
-│   └── init/            # Scripts SQL de inicialización
-├── infra/               # Terraform (AWS)
-├── docs/                # Documentación
-├── docker-compose.yml   # Orquestación de servicios
-└── .env                 # Variables de entorno locales
+apps/
+  backend/        Spring Boot REST API
+  frontend/       Angular SPA
+infra/
+  modules/        10 modulos Terraform (networking, security, compute, ecr,
+                  api_gateway, storage, cdn, iam, dns, monitoring)
+.github/
+  workflows/      CI/CD pipelines (validate + deploy + destroy)
 ```
 
-## Configuración Inicial
+## Arquitectura del backend
 
-### 1. Variables de Entorno
+Arquitectura en capas estricta:
 
-Copia el archivo de ejemplo y configura tus variables:
-
-```bash
-cp .env.example .env
+```
+Controller  -->  Service  -->  Repository  -->  DB
+    |               |
+   DTO          Entity
 ```
 
-Edita `.env` con tus configuraciones (valores por defecto ya incluidos):
+- **Controller**: recibe HTTP, valida con `@Valid`, delega al service
+- **Service**: logica de negocio, validaciones de duplicados, generacion de account number
+- **Repository**: Spring Data JPA, queries derivadas
+- **DTO**: objetos de transferencia separados de las entidades
+- **Entity**: mapeo JPA con `@CryptoConverter` para cifrado de datos sensibles
 
-```env
-DB_NAME=bank_onboarding
-DB_USER=bankuser
-DB_PASSWORD=bankpass123
-DB_PORT=5432
-SERVER_PORT=8080
+### Manejo de errores
+
+`GlobalExceptionHandler` (`@ControllerAdvice`) captura:
+
+| Excepcion | HTTP | Cuando |
+|-----------|------|--------|
+| `MethodArgumentNotValidException` | 400 | Campos invalidos (`@NotBlank`, `@Email`) |
+| `BusinessException` | 400 | Regla de negocio violada (duplicado, cuenta ya existe) |
+| `ResourceNotFoundException` | 404 | Cliente o cuenta no encontrada |
+| `Exception` | 500 | Error inesperado |
+
+Todas las respuestas de error incluyen: `timestamp`, `status`, `message`, `path`.
+
+### Seguridad de datos
+
+Los campos sensibles (`documentNumber`, `fullName`, `email`, `accountNumber`) se cifran en base de datos usando AES-256-CBC mediante un `AttributeConverter` de JPA:
+
+```
+Customer.email  --(CryptoConverter)--> Base64(AES(email))  --> DB
+DB              --(CryptoConverter)--> decrypt              --> Customer.email
 ```
 
-### 2. Iniciar la Base de Datos
+La clave de cifrado se inyecta por variable de entorno (`ENCRYPTION_KEY`), nunca hardcodeada en produccion.
 
-La base de datos PostgreSQL se iniciará automáticamente con Docker Compose y ejecutará los scripts de inicialización:
+### Observabilidad
 
-```bash
-# Iniciar solo PostgreSQL
-docker-compose up -d postgres
+- `RequestIdFilter`: genera un UUID corto por request y lo inyecta en MDC + header `X-Request-Id`
+- Todos los logs incluyen el requestId para trazabilidad
+- Spring Actuator expone `/actuator/health`, `/actuator/info`, `/actuator/metrics`
 
-# Ver logs de la base de datos
-docker-compose logs -f postgres
-```
+## Reglas de negocio
 
-Los scripts SQL en `database/init/` crearán:
-- Tablas `customers` y `accounts`
-- Índices para mejor rendimiento
-- Constraints para reglas de negocio (un cliente = una cuenta)
-- Datos de prueba (4 clientes, 2 con cuentas)
+| # | Regla | Implementacion |
+|---|-------|---------------|
+| 1 | Un cliente = una sola cuenta | `UNIQUE(customer_id)` en tabla + validacion en `AccountService` |
+| 2 | `documentNumber` y `email` obligatorios y unicos | `@NotBlank` en DTO + `UNIQUE` en entidad + chequeo en service |
+| 3 | No crear cuenta sin cliente existente | `CustomerRepository.existsById()` -> `ResourceNotFoundException` (404) |
+| 4 | `accountNumber` autogenerado | Formato `ACC-{timestamp}-{random4}` en `AccountService` |
+| 5 | Validaciones retornan 400 con JSON claro | `GlobalExceptionHandler` con estructura estandar |
 
-### 3. Iniciar el Backend
-
-#### Opción A: Con Docker (Recomendado)
-
-```bash
-# Iniciar todos los servicios
-docker-compose up -d
-
-# Ver logs del backend
-docker-compose logs -f backend
-```
-
-#### Opción B: Desarrollo Local
-
-```bash
-cd apps/backend
-
-# Asegúrate que PostgreSQL esté corriendo
-docker-compose up -d postgres
-
-# Ejecutar la aplicación
-./mvnw spring-boot:run
-
-# O ejecutar tests
-./mvnw test
-```
-
-El backend estará disponible en `http://localhost:8080`
-
-## API Endpoints
+## API
 
 ### Customers
 
-- `POST /api/customers` - Crear cliente
-- `GET /api/customers` - Listar todos los clientes
+```
+POST /api/customers          Crear cliente
+GET  /api/customers          Listar todos
+GET  /api/customers/{id}     Obtener por ID
+```
 
 ### Accounts
 
-- `POST /api/accounts` - Crear cuenta
-- `GET /api/accounts?customerId={id}` - Consultar cuentas por cliente
-
-## Reglas de Negocio
-
-1. ✅ Un cliente puede tener **una sola cuenta**
-2. ✅ `documentNumber` y `email` son **obligatorios y únicos**
-3. ✅ NO permitir crear cuenta si el cliente no existe → `404`
-4. ✅ `accountNumber` se **autogenera** (formato: `ACC-{timestamp}-{random}`)
-5. ✅ Validaciones retornan `400` con mensajes claros en JSON
-
-## Base de Datos
-
-### Esquema
-
-**Tabla: customers**
-```sql
-- id: BIGSERIAL PRIMARY KEY
-- document_type: VARCHAR(3) CHECK (CC/CE/PAS)
-- document_number: VARCHAR(50) UNIQUE NOT NULL
-- full_name: VARCHAR(255) NOT NULL
-- email: VARCHAR(255) UNIQUE NOT NULL
-- created_at: TIMESTAMP
-- updated_at: TIMESTAMP
+```
+POST  /api/accounts                    Crear cuenta (body: { customerId })
+GET   /api/accounts                    Listar todas
+GET   /api/accounts?customerId={id}    Filtrar por cliente
+PATCH /api/accounts/{id}/status        Cambiar estado (ACTIVE/INACTIVE)
 ```
 
-**Tabla: accounts**
-```sql
-- id: BIGSERIAL PRIMARY KEY
-- customer_id: BIGINT UNIQUE FK -> customers(id)
-- account_number: VARCHAR(50) UNIQUE NOT NULL
-- status: VARCHAR(20) CHECK (ACTIVE/INACTIVE)
-- balance: DECIMAL(15,2) DEFAULT 0.00
-- created_at: TIMESTAMP
-- updated_at: TIMESTAMP
+## Frontend
+
+SPA con dos paginas:
+
+- **`/customers`** — Formulario reactivo (`ReactiveFormsModule`) para crear clientes + tabla de listado. Checkbox opcional para crear cuenta automaticamente.
+- **`/accounts`** — Vista consolidada cliente-cuenta con acciones de crear cuenta y cambiar estado (activar/bloquear).
+
+Patron de servicios: `CustomerService` y `AccountService` encapsulan las llamadas HTTP. Los componentes usan signals de Angular para estado reactivo.
+
+**Responsive**: las tablas usan el patron de cards apiladas en pantallas <= 768px con `data-label` + CSS `::before` (sin JavaScript).
+
+## Infraestructura (AWS + Terraform)
+
+```
+                    Cloudflare DNS
+                         |
+                    CloudFront CDN
+                    /          \
+            S3 (frontend)    API Gateway
+                                |
+                           VPC Private Subnet
+                                |
+                         EC2 (Docker + backend)
+                                |
+                           H2 in-memory
 ```
 
-### Conectarse a PostgreSQL
+10 modulos Terraform:
 
-```bash
-# Desde el host
-docker exec -it bank-postgres psql -U bankuser -d bank_onboarding
+| Modulo | Recursos |
+|--------|----------|
+| `networking` | VPC, subnets publica/privada, IGW, NAT, route tables |
+| `security` | Security groups (EC2, VPC Link) |
+| `compute` | EC2 con user_data para Docker + CloudWatch Agent |
+| `ecr` | Repositorio de imagenes Docker |
+| `api_gateway` | REST API con VPC Link hacia EC2 |
+| `storage` | S3 bucket para frontend |
+| `cdn` | CloudFront con origins S3 + API Gateway |
+| `iam` | Roles y policies (EC2, ECR pull, SSM, CloudWatch) |
+| `dns` | Route53 hosted zone + ACM certificate + Cloudflare validation |
+| `monitoring` | CloudWatch log groups, alarms, SNS |
 
-# Comandos útiles de psql
-\dt              # Listar tablas
-\d customers     # Describir tabla customers
-\d accounts      # Describir tabla accounts
-SELECT * FROM customers;
-SELECT * FROM accounts;
-```
+Estado remoto en S3 + DynamoDB lock.
 
-## Comandos Docker Útiles
+## CI/CD
 
-```bash
-# Iniciar todos los servicios
-docker-compose up -d
+7 workflows en GitHub Actions:
 
-# Detener todos los servicios
-docker-compose down
+| Workflow | Trigger | Que hace |
+|----------|---------|----------|
+| `validate-backend` | PR en `apps/backend/` | Maven test + build |
+| `validate-frontend` | PR en `apps/frontend/` | npm install + build |
+| `validate-infra` | PR en `infra/` | terraform fmt + init + validate + plan |
+| `deploy-backend` | Push a main en `apps/backend/` | Build -> ECR push -> SSM deploy a EC2 -> health check |
+| `deploy-frontend` | Push a main en `apps/frontend/` | Build -> S3 sync -> CloudFront invalidation |
+| `deploy-infra` | Push a main en `infra/` | Terraform apply |
+| `destroy` | Manual (workflow_dispatch) | Terraform destroy con confirmacion |
 
-# Ver logs
-docker-compose logs -f
+Todos los secretos (AWS keys, Cloudflare token, encryption key) se manejan via GitHub Secrets.
 
-# Reconstruir las imágenes
-docker-compose build --no-cache
+## Como ejecutar en local
 
-# Reiniciar un servicio específico
-docker-compose restart backend
+### Prerrequisitos
 
-# Eliminar volúmenes (¡CUIDADO! Borra datos)
-docker-compose down -v
-```
+- Java 21
+- Node.js 20+
+- npm 11+
 
-## Desarrollo
-
-### Backend (Spring Boot)
+### Backend
 
 ```bash
 cd apps/backend
-
-# Compilar
-./mvnw clean install
-
-# Ejecutar tests
-./mvnw test
-
-# Ejecutar con perfil específico
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-
-# Generar JAR
-./mvnw package -DskipTests
+./mvnw spring-boot:run
 ```
 
-### Frontend (Angular)
+Usa H2 en memoria por defecto (perfil default). No requiere base de datos externa.
+API disponible en `http://localhost:8080`.
+
+### Frontend
 
 ```bash
 cd apps/frontend
-
-# Instalar dependencias
 npm install
-
-# Desarrollo
-ng serve
-
-# Tests
-ng test
-
-# Build producción
-ng build --prod
+npx ng serve
 ```
 
-## Health Check
+Disponible en `http://localhost:4200`. El proxy redirige `/api/*` al backend en `:8080`.
 
-Una vez iniciado el backend, verifica su estado:
+### Tests
 
 ```bash
-# Health check
-curl http://localhost:8080/actuator/health
+# Backend
+cd apps/backend && ./mvnw test
 
-# Info de la aplicación
-curl http://localhost:8080/actuator/info
+# Frontend
+cd apps/frontend && npx ng test
 ```
 
-## Troubleshooting
-
-### El backend no se conecta a la base de datos
-
-1. Verifica que PostgreSQL esté corriendo: `docker-compose ps`
-2. Revisa los logs: `docker-compose logs postgres`
-3. Verifica las variables de entorno en `.env`
-4. Asegúrate que el puerto 5432 no esté ocupado: `lsof -i :5432`
-
-### Error de permisos en mvnw
+## Variables de entorno
 
 ```bash
-chmod +x apps/backend/mvnw
+cp .env.example .env
+# Editar .env con valores reales
 ```
 
-### Resetear la base de datos
+Ver `.env.example` para la lista completa de variables. Nunca commitear credenciales reales.
 
-```bash
-# Detener servicios y eliminar volúmenes
-docker-compose down -v
+## Decisiones de diseno
 
-# Reiniciar (los scripts SQL se ejecutarán nuevamente)
-docker-compose up -d
-```
-
-## Próximos Pasos
-
-1. ✅ Implementar entidades JPA (Customer, Account)
-2. ✅ Crear DTOs con validaciones
-3. ✅ Implementar Services con lógica de negocio
-4. ✅ Crear Controllers con manejo de errores
-5. ✅ Agregar tests unitarios e integración
-6. 🔄 Desarrollar frontend Angular
-7. 🔄 Configurar CI/CD
-8. 🔄 Deploy a AWS
-
-## Licencia
-
-Este es un proyecto de práctica/kata para evaluaciones técnicas.
+| Decision | Razon |
+|----------|-------|
+| H2 en dev, PostgreSQL en prod | Desarrollo sin dependencias externas, produccion con persistencia real |
+| Cifrado AES en campos sensibles | Datos bancarios (documento, email, nombre) protegidos at-rest |
+| `@ControllerAdvice` global | Respuestas de error consistentes en toda la API |
+| RequestId por request | Trazabilidad end-to-end en logs |
+| DTO separados de entidades | Desacoplar representacion HTTP del modelo de persistencia |
+| Angular standalone components | Patron moderno de Angular, sin NgModules innecesarios |
+| CSS responsive con data-label | Tablas legibles en movil sin JavaScript adicional |
+| Terraform modular (10 modulos) | Separacion de concerns en IaC, reutilizable |
+| EC2 + Docker (no Fargate) | Costo menor para una kata, con deploy automatizado via SSM |
+| CloudFront + S3 para frontend | CDN global, HTTPS, cache automatico |
+| Cloudflare para DNS | Gestion de dominio + validacion de certificado ACM |
