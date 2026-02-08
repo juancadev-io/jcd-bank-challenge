@@ -1,0 +1,106 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/validate-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  read-outputs:
+    runs-on: ubuntu-latest
+    outputs:
+      s3_bucket_name: ${{ steps.tf.outputs.s3_bucket_name }}
+      cloudfront_distribution_id: ${{ steps.tf.outputs.cloudfront_distribution_id }}
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Get Terraform outputs
+        id: tf
+        run: |
+          echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+          echo "cloudfront_distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: read-outputs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test:coverage
+
+      - name: Build for production
+        run: npx ng build --configuration=production
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3
+        env:
+          S3_BUCKET: ${{ needs.read-outputs.outputs.s3_bucket_name }}
+        run: |
+          # HTML files: no cache (always fresh)
+          aws s3 sync dist/frontend/browser/ s3://$S3_BUCKET/ \
+            --delete \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+          # Hashed assets: immutable cache (1 year)
+          aws s3 sync dist/frontend/browser/ s3://$S3_BUCKET/ \
+            --exclude "*.html" \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Invalidate CloudFront cache
+        env:
+          DISTRIBUTION_ID: ${{ needs.read-outputs.outputs.cloudfront_distribution_id }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*"
