@@ -28,15 +28,15 @@ variable "cloudflare_api_token" {
 }
 
 variable "fargate_cpu" {
-  description = "CPU units for the Fargate task (256 = 0.25 vCPU)"
+  description = "CPU units for the Fargate task (512 = 0.5 vCPU)"
   type        = number
-  default     = 256
+  default     = 512
 }
 
 variable "fargate_memory" {
   description = "Memory (MiB) for the Fargate task"
   type        = number
-  default     = 512
+  default     = 1024
 }
 
 variable "vpc_cidr" {

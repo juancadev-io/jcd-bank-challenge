@@ -45,6 +45,8 @@ resource "aws_eip" "nat" {
   domain = "vpc"
 
   tags = { Name = "${var.name_prefix}-nat-eip" }
+
+  depends_on = [aws_internet_gateway.main]
 }
 
 resource "aws_nat_gateway" "main" {
