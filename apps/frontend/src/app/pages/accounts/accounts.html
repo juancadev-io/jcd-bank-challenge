@@ -39,10 +39,21 @@
               <td data-label="Balance">{{ row.account.balance | number: '1.2-2' }}</td>
               <td data-label="Fecha creación">{{ row.account.createdAt | date: 'short' }}</td>
               <td data-label="Acciones">
-                @if (row.account.status === 'ACTIVE') {
-                  <button class="btn-block" (click)="toggleStatus(row.account)">Bloquear</button>
+                @if (transactionAccountId() === row.account.id) {
+                  <div class="transaction-inline">
+                    <span class="transaction-label">{{ transactionType() === 'DEPOSIT' ? 'Depositar' : 'Retirar' }}:</span>
+                    <input type="number" class="transaction-input" [ngModel]="transactionAmount()" (ngModelChange)="transactionAmount.set($event)" min="0.01" step="0.01" placeholder="Monto" />
+                    <button class="btn-confirm" (click)="submitTransaction()">Confirmar</button>
+                    <button class="btn-cancel" (click)="cancelTransaction()">Cancelar</button>
+                  </div>
                 } @else {
-                  <button class="btn-activate" (click)="toggleStatus(row.account)">Activar</button>
+                  @if (row.account.status === 'ACTIVE') {
+                    <button class="btn-deposit" (click)="openTransaction(row.account.id, 'DEPOSIT')">Depositar</button>
+                    <button class="btn-withdraw" (click)="openTransaction(row.account.id, 'WITHDRAWAL')">Retirar</button>
+                    <button class="btn-block" (click)="toggleStatus(row.account)">Bloquear</button>
+                  } @else {
+                    <button class="btn-activate" (click)="toggleStatus(row.account)">Activar</button>
+                  }
                 }
               </td>
             } @else {

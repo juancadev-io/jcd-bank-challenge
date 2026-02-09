@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Account, AccountCreate } from '../models/account.model';
+import { Account, AccountCreate, TransactionRequest } from '../models/account.model';
 
 @Injectable({ providedIn: 'root' })
 export class AccountService {
@@ -22,5 +22,9 @@ export class AccountService {
 
   updateStatus(id: number, status: string): Observable<Account> {
     return this.http.patch<Account>(`${this.apiUrl}/${id}/status`, { status });
+  }
+
+  transaction(id: number, data: TransactionRequest): Observable<Account> {
+    return this.http.post<Account>(`${this.apiUrl}/${id}/transaction`, data);
   }
 }

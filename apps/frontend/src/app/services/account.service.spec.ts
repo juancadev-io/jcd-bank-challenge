@@ -77,4 +77,17 @@ describe('AccountService', () => {
     expect(req.request.body).toEqual({ status: 'INACTIVE' });
     req.flush(updated);
   });
+
+  it('transaction should post and return updated account', () => {
+    const updated = { ...mockAccount, balance: 100 };
+
+    service.transaction(1, { type: 'DEPOSIT', amount: 100 }).subscribe((account) => {
+      expect(account).toEqual(updated);
+    });
+
+    const req = httpTesting.expectOne('/api/accounts/1/transaction');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ type: 'DEPOSIT', amount: 100 });
+    req.flush(updated);
+  });
 });

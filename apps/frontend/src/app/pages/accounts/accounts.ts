@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CustomerService } from '../../services/customer.service';
 import { AccountService } from '../../services/account.service';
 import { Customer } from '../../models/customer.model';
@@ -12,7 +13,7 @@ interface CustomerWithAccount {
 
 @Component({
   selector: 'app-accounts',
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe, DecimalPipe, FormsModule],
   templateUrl: './accounts.html',
   styleUrl: './accounts.css',
 })
@@ -24,6 +25,10 @@ export class AccountsPage implements OnInit {
   loading = signal(false);
   message = signal('');
   messageType = signal<'success' | 'error'>('success');
+
+  transactionAccountId = signal<number | null>(null);
+  transactionType = signal<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
+  transactionAmount = signal<number | null>(null);
 
   ngOnInit() {
     this.loadData();
@@ -88,6 +93,43 @@ export class AccountsPage implements OnInit {
         this.showMessage(err.error?.message || 'Error al actualizar estado', 'error');
       },
     });
+  }
+
+  openTransaction(accountId: number, type: 'DEPOSIT' | 'WITHDRAWAL') {
+    this.transactionAccountId.set(accountId);
+    this.transactionType.set(type);
+    this.transactionAmount.set(null);
+  }
+
+  cancelTransaction() {
+    this.transactionAccountId.set(null);
+    this.transactionAmount.set(null);
+  }
+
+  submitTransaction() {
+    const accountId = this.transactionAccountId();
+    const amount = this.transactionAmount();
+    if (!accountId || !amount || amount <= 0) return;
+
+    this.loading.set(true);
+    this.accountService
+      .transaction(accountId, { type: this.transactionType(), amount })
+      .subscribe({
+        next: () => {
+          this.showMessage(
+            this.transactionType() === 'DEPOSIT'
+              ? 'Depósito realizado exitosamente'
+              : 'Retiro realizado exitosamente',
+            'success',
+          );
+          this.cancelTransaction();
+          this.loadData();
+        },
+        error: (err) => {
+          this.showMessage(err.error?.message || 'Error al realizar la transacción', 'error');
+          this.loading.set(false);
+        },
+      });
   }
 
   private showMessage(msg: string, type: 'success' | 'error') {

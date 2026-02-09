@@ -41,6 +41,46 @@ button {
   background: #43a047;
 }
 
+.btn-deposit {
+  background: #1976d2;
+  margin-right: 4px;
+}
+
+.btn-withdraw {
+  background: #f57c00;
+  margin-right: 4px;
+}
+
+.btn-confirm {
+  background: #43a047;
+  margin-right: 4px;
+}
+
+.btn-cancel {
+  background: #757575;
+}
+
+.transaction-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.transaction-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.transaction-input {
+  width: 100px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
 @media (max-width: 768px) {
   .no-account {
     text-align: right;

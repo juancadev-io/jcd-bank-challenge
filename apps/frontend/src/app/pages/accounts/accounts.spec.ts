@@ -38,6 +38,7 @@ describe('AccountsPage', () => {
       getAll: vi.fn().mockReturnValue(of([mockAccount])),
       create: vi.fn().mockReturnValue(of(mockAccount)),
       updateStatus: vi.fn().mockReturnValue(of({ ...mockAccount, status: 'INACTIVE' })),
+      transaction: vi.fn().mockReturnValue(of({ ...mockAccount, balance: 100 })),
     };
 
     await TestBed.configureTestingModule({
@@ -288,5 +289,92 @@ describe('AccountsPage', () => {
     activateBtn.click();
 
     expect(mockAccountService.updateStatus).toHaveBeenCalledWith(1, 'ACTIVE');
+  });
+
+  it('should open transaction form for deposit', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'DEPOSIT');
+
+    expect(fixture.componentInstance.transactionAccountId()).toBe(1);
+    expect(fixture.componentInstance.transactionType()).toBe('DEPOSIT');
+  });
+
+  it('should open transaction form for withdrawal', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'WITHDRAWAL');
+
+    expect(fixture.componentInstance.transactionAccountId()).toBe(1);
+    expect(fixture.componentInstance.transactionType()).toBe('WITHDRAWAL');
+  });
+
+  it('should cancel transaction', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'DEPOSIT');
+    fixture.componentInstance.cancelTransaction();
+
+    expect(fixture.componentInstance.transactionAccountId()).toBeNull();
+    expect(fixture.componentInstance.transactionAmount()).toBeNull();
+  });
+
+  it('should submit deposit transaction', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'DEPOSIT');
+    fixture.componentInstance.transactionAmount.set(100);
+    fixture.componentInstance.submitTransaction();
+
+    expect(mockAccountService.transaction).toHaveBeenCalledWith(1, { type: 'DEPOSIT', amount: 100 });
+  });
+
+  it('should submit withdrawal transaction', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'WITHDRAWAL');
+    fixture.componentInstance.transactionAmount.set(50);
+    fixture.componentInstance.submitTransaction();
+
+    expect(mockAccountService.transaction).toHaveBeenCalledWith(1, { type: 'WITHDRAWAL', amount: 50 });
+  });
+
+  it('should not submit transaction with no amount', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'DEPOSIT');
+    fixture.componentInstance.submitTransaction();
+
+    expect(mockAccountService.transaction).not.toHaveBeenCalled();
+  });
+
+  it('should handle transaction error', () => {
+    mockAccountService.transaction.mockReturnValue(
+      throwError(() => ({ error: { message: 'Fondos insuficientes' } })),
+    );
+
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openTransaction(1, 'WITHDRAWAL');
+    fixture.componentInstance.transactionAmount.set(1000);
+    fixture.componentInstance.submitTransaction();
+
+    expect(fixture.componentInstance.message()).toBe('Fondos insuficientes');
+  });
+
+  it('should render deposit and withdraw buttons for active account', () => {
+    const fixture = TestBed.createComponent(AccountsPage);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.btn-deposit')).toBeTruthy();
+    expect(el.querySelector('.btn-withdraw')).toBeTruthy();
   });
 });
