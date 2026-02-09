@@ -3,6 +3,7 @@ package com.bank.onboarding.backend.controller;
 import com.bank.onboarding.backend.dto.AccountCreateDTO;
 import com.bank.onboarding.backend.dto.AccountResponseDTO;
 import com.bank.onboarding.backend.dto.AccountStatusDTO;
+import com.bank.onboarding.backend.dto.TransactionDTO;
 import com.bank.onboarding.backend.exception.BusinessException;
 import com.bank.onboarding.backend.exception.GlobalExceptionHandler;
 import com.bank.onboarding.backend.exception.ResourceNotFoundException;
@@ -168,5 +169,53 @@ class AccountControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transaction_returns200() throws Exception {
+        AccountResponseDTO response = buildResponse();
+        response.setBalance(new BigDecimal("100.00"));
+        when(accountService.transaction(eq(1L), any(TransactionDTO.class))).thenReturn(response);
+
+        TransactionDTO request = new TransactionDTO("DEPOSIT", new BigDecimal("100.00"));
+
+        mockMvc.perform(post("/api/accounts/1/transaction")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.balance").value(100.00));
+    }
+
+    @Test
+    void transaction_invalidType_returns400() throws Exception {
+        TransactionDTO request = new TransactionDTO("INVALID", new BigDecimal("100.00"));
+
+        mockMvc.perform(post("/api/accounts/1/transaction")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transaction_negativeAmount_returns400() throws Exception {
+        TransactionDTO request = new TransactionDTO("DEPOSIT", new BigDecimal("-10.00"));
+
+        mockMvc.perform(post("/api/accounts/1/transaction")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transaction_notFound_returns404() throws Exception {
+        when(accountService.transaction(eq(99L), any(TransactionDTO.class)))
+                .thenThrow(new ResourceNotFoundException("Cuenta no encontrada con id: 99"));
+
+        TransactionDTO request = new TransactionDTO("DEPOSIT", new BigDecimal("100.00"));
+
+        mockMvc.perform(post("/api/accounts/99/transaction")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
     }
 }

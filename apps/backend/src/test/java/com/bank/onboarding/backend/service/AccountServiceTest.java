@@ -2,6 +2,7 @@ package com.bank.onboarding.backend.service;
 
 import com.bank.onboarding.backend.dto.AccountCreateDTO;
 import com.bank.onboarding.backend.dto.AccountResponseDTO;
+import com.bank.onboarding.backend.dto.TransactionDTO;
 import com.bank.onboarding.backend.entity.Account;
 import com.bank.onboarding.backend.exception.BusinessException;
 import com.bank.onboarding.backend.exception.ResourceNotFoundException;
@@ -131,6 +132,71 @@ class AccountServiceTest {
 
         assertThrows(ResourceNotFoundException.class,
                 () -> accountService.updateAccountStatus(99L, "INACTIVE"));
+
+        verify(accountRepository, never()).save(any());
+    }
+
+    @Test
+    void transaction_deposit_success() {
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
+        when(accountRepository.save(any(Account.class))).thenReturn(account);
+
+        TransactionDTO dto = new TransactionDTO("DEPOSIT", new BigDecimal("100.00"));
+        AccountResponseDTO result = accountService.transaction(1L, dto);
+
+        assertNotNull(result);
+        verify(accountRepository).save(account);
+        assertEquals(new BigDecimal("100.00"), account.getBalance());
+    }
+
+    @Test
+    void transaction_withdrawal_success() {
+        account.setBalance(new BigDecimal("500.00"));
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
+        when(accountRepository.save(any(Account.class))).thenReturn(account);
+
+        TransactionDTO dto = new TransactionDTO("WITHDRAWAL", new BigDecimal("200.00"));
+        AccountResponseDTO result = accountService.transaction(1L, dto);
+
+        assertNotNull(result);
+        verify(accountRepository).save(account);
+        assertEquals(new BigDecimal("300.00"), account.getBalance());
+    }
+
+    @Test
+    void transaction_insufficientFunds_throwsBusinessException() {
+        account.setBalance(new BigDecimal("50.00"));
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
+
+        TransactionDTO dto = new TransactionDTO("WITHDRAWAL", new BigDecimal("100.00"));
+
+        assertThrows(BusinessException.class,
+                () -> accountService.transaction(1L, dto));
+
+        verify(accountRepository, never()).save(any());
+    }
+
+    @Test
+    void transaction_accountNotFound_throwsResourceNotFoundException() {
+        when(accountRepository.findById(99L)).thenReturn(Optional.empty());
+
+        TransactionDTO dto = new TransactionDTO("DEPOSIT", new BigDecimal("100.00"));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> accountService.transaction(99L, dto));
+
+        verify(accountRepository, never()).save(any());
+    }
+
+    @Test
+    void transaction_inactiveAccount_throwsBusinessException() {
+        account.setStatus("INACTIVE");
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
+
+        TransactionDTO dto = new TransactionDTO("DEPOSIT", new BigDecimal("100.00"));
+
+        assertThrows(BusinessException.class,
+                () -> accountService.transaction(1L, dto));
 
         verify(accountRepository, never()).save(any());
     }
