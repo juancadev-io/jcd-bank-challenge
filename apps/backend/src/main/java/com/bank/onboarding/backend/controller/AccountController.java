@@ -3,6 +3,7 @@ package com.bank.onboarding.backend.controller;
 import com.bank.onboarding.backend.dto.AccountCreateDTO;
 import com.bank.onboarding.backend.dto.AccountResponseDTO;
 import com.bank.onboarding.backend.dto.AccountStatusDTO;
+import com.bank.onboarding.backend.dto.TransactionDTO;
 import com.bank.onboarding.backend.service.AccountService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -40,5 +41,11 @@ public class AccountController {
     public ResponseEntity<AccountResponseDTO> updateAccountStatus(
             @PathVariable Long id, @Valid @RequestBody AccountStatusDTO dto) {
         return ResponseEntity.ok(accountService.updateAccountStatus(id, dto.getStatus()));
+    }
+
+    @PostMapping("/{id}/transaction")
+    public ResponseEntity<AccountResponseDTO> transaction(
+            @PathVariable Long id, @Valid @RequestBody TransactionDTO dto) {
+        return ResponseEntity.ok(accountService.transaction(id, dto));
     }
 }
