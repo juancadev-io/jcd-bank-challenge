@@ -2,6 +2,7 @@ package com.bank.onboarding.backend.service;
 
 import com.bank.onboarding.backend.dto.AccountCreateDTO;
 import com.bank.onboarding.backend.dto.AccountResponseDTO;
+import com.bank.onboarding.backend.dto.TransactionDTO;
 import com.bank.onboarding.backend.entity.Account;
 import com.bank.onboarding.backend.exception.BusinessException;
 import com.bank.onboarding.backend.exception.ResourceNotFoundException;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
 
@@ -74,6 +76,35 @@ public class AccountService {
         account.setStatus(status);
         Account saved = accountRepository.save(account);
         log.info("Account id={} status updated to {}", id, status);
+        return new AccountResponseDTO(saved);
+    }
+
+    public AccountResponseDTO transaction(Long id, TransactionDTO dto) {
+        log.info("Processing {} for accountId={}, amount={}", dto.getType(), id, dto.getAmount());
+
+        Account account = accountRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.warn("Account not found with id={}", id);
+                    return new ResourceNotFoundException("Cuenta no encontrada con id: " + id);
+                });
+
+        if (!"ACTIVE".equals(account.getStatus())) {
+            throw new BusinessException("La cuenta no está activa");
+        }
+
+        BigDecimal currentBalance = account.getBalance();
+
+        if ("DEPOSIT".equals(dto.getType())) {
+            account.setBalance(currentBalance.add(dto.getAmount()));
+        } else {
+            if (currentBalance.compareTo(dto.getAmount()) < 0) {
+                throw new BusinessException("Fondos insuficientes");
+            }
+            account.setBalance(currentBalance.subtract(dto.getAmount()));
+        }
+
+        Account saved = accountRepository.save(account);
+        log.info("Transaction {} completed for accountId={}, new balance={}", dto.getType(), id, saved.getBalance());
         return new AccountResponseDTO(saved);
     }
 
