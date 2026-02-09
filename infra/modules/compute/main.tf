@@ -5,6 +5,8 @@ resource "aws_instance" "backend" {
   vpc_security_group_ids = [var.security_group_id]
   iam_instance_profile   = var.instance_profile_name
 
+  user_data_replace_on_change = true
+
   user_data = templatefile("${path.module}/user_data.tftpl", {
     aws_region         = var.aws_region
     ecr_repository_url = var.ecr_repository_url

@@ -28,9 +28,9 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWCON
             "retention_in_days": 14
           },
           {
-            "file_path": "/var/log/backend-container.log",
+            "file_path": "/var/log/docker-daemon.log",
             "log_group_name": "${log_group_name}",
-            "log_stream_name": "ec2/backend-app",
+            "log_stream_name": "ec2/docker-daemon",
             "retention_in_days": 14
           }
         ]
@@ -76,13 +76,13 @@ if docker image inspect ${ecr_repository_url}:latest >/dev/null 2>&1; then
     -e SERVER_PORT=8080 \
     -e SPRING_PROFILES_ACTIVE=prod \
     -e ENCRYPTION_KEY="${encryption_key}" \
-    --log-driver json-file \
-    --log-opt max-size=10m \
-    --log-opt max-file=3 \
-    ${ecr_repository_url}:latest \
-    2>&1 | tee /var/log/backend-container.log
+    --log-driver awslogs \
+    --log-opt awslogs-group=${log_group_name} \
+    --log-opt awslogs-region=${aws_region} \
+    --log-opt awslogs-stream-prefix=backend \
+    ${ecr_repository_url}:latest
 else
-  echo "No image available yet. Push an image to ECR and run update-backend.sh" > /var/log/backend-container.log
+  echo "No image available yet. Push an image to ECR and run update-backend.sh" | tee /var/log/user-data.log
 fi
 
 # Create update script for CI/CD
@@ -101,9 +101,10 @@ docker run -d \
   -e SERVER_PORT=8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e ENCRYPTION_KEY="${encryption_key}" \
-  --log-driver json-file \
-  --log-opt max-size=10m \
-  --log-opt max-file=3 \
+  --log-driver awslogs \
+  --log-opt awslogs-group=${log_group_name} \
+  --log-opt awslogs-region=${aws_region} \
+  --log-opt awslogs-stream-prefix=backend \
   ${ecr_repository_url}:latest
 docker image prune -f
 SCRIPT
