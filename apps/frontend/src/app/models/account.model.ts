@@ -11,3 +11,8 @@ export interface Account {
 export interface AccountCreate {
   customerId: number;
 }
+
+export interface TransactionRequest {
+  type: 'DEPOSIT' | 'WITHDRAWAL';
+  amount: number;
+}
