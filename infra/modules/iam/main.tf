@@ -1,82 +1,32 @@
-data "aws_iam_policy_document" "ec2_assume_role" {
+# --- ECS Task Execution Role (Fargate pulls ECR + writes logs) ---
+
+data "aws_iam_policy_document" "ecs_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
+      identifiers = ["ecs-tasks.amazonaws.com"]
     }
   }
 }
 
-resource "aws_iam_role" "ec2" {
-  name               = "${var.name_prefix}-ec2-role"
-  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+resource "aws_iam_role" "ecs_execution" {
+  name               = "${var.name_prefix}-ecs-execution-role"
+  assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
 
-  tags = { Name = "${var.name_prefix}-ec2-role" }
+  tags = { Name = "${var.name_prefix}-ecs-execution-role" }
 }
 
-resource "aws_iam_instance_profile" "ec2" {
-  name = "${var.name_prefix}-ec2-profile"
-  role = aws_iam_role.ec2.name
+resource "aws_iam_role_policy_attachment" "ecs_execution" {
+  role       = aws_iam_role.ecs_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# SSM Session Manager access
-resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.ec2.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
+# --- ECS Task Role (for the application itself) ---
 
-# CloudWatch Agent metrics
-resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
-  role       = aws_iam_role.ec2.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-}
+resource "aws_iam_role" "ecs_task" {
+  name               = "${var.name_prefix}-ecs-task-role"
+  assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
 
-# ECR pull permissions
-data "aws_iam_policy_document" "ecr_pull" {
-  statement {
-    actions = [
-      "ecr:BatchGetImage",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:BatchCheckLayerAvailability",
-    ]
-    resources = [var.ecr_repo_arn]
-  }
-
-  statement {
-    actions   = ["ecr:GetAuthorizationToken"]
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_policy" "ecr_pull" {
-  name   = "${var.name_prefix}-ecr-pull"
-  policy = data.aws_iam_policy_document.ecr_pull.json
-}
-
-resource "aws_iam_role_policy_attachment" "ecr_pull" {
-  role       = aws_iam_role.ec2.name
-  policy_arn = aws_iam_policy.ecr_pull.arn
-}
-
-# CloudWatch Logs permissions
-data "aws_iam_policy_document" "cloudwatch_logs" {
-  statement {
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:CreateLogGroup",
-    ]
-    resources = ["${var.log_group_arn}:*"]
-  }
-}
-
-resource "aws_iam_policy" "cloudwatch_logs" {
-  name   = "${var.name_prefix}-cloudwatch-logs"
-  policy = data.aws_iam_policy_document.cloudwatch_logs.json
-}
-
-resource "aws_iam_role_policy_attachment" "cloudwatch_logs" {
-  role       = aws_iam_role.ec2.name
-  policy_arn = aws_iam_policy.cloudwatch_logs.arn
+  tags = { Name = "${var.name_prefix}-ecs-task-role" }
 }

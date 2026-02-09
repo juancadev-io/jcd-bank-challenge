@@ -2,23 +2,29 @@ variable "name_prefix" {
   type = string
 }
 
-variable "instance_type" {
-  type = string
+variable "cpu" {
+  type    = number
+  default = 256
 }
 
-variable "ami_id" {
-  type = string
+variable "memory" {
+  type    = number
+  default = 512
 }
 
-variable "subnet_id" {
-  type = string
+variable "private_subnet_ids" {
+  type = list(string)
 }
 
 variable "security_group_id" {
   type = string
 }
 
-variable "instance_profile_name" {
+variable "execution_role_arn" {
+  type = string
+}
+
+variable "task_role_arn" {
   type = string
 }
 
@@ -39,6 +45,6 @@ variable "log_group_name" {
   type = string
 }
 
-variable "metrics_namespace" {
+variable "cloud_map_service_arn" {
   type = string
 }

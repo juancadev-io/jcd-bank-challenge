@@ -9,8 +9,9 @@ domain_name = "bank.juancamilofarfan.com"
 # Permissions needed: Zone:DNS:Edit for juancamilofarfan.com
 cloudflare_api_token = "your-cloudflare-api-token"
 
-# Compute
-ec2_instance_type = "t3.micro"
+# Compute (ECS Fargate)
+fargate_cpu    = 256   # 0.25 vCPU
+fargate_memory = 512   # 0.5 GB
 
 # Networking
 vpc_cidr = "10.0.0.0/16"

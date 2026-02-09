@@ -27,10 +27,16 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
-variable "ec2_instance_type" {
-  description = "EC2 instance type for the backend"
-  type        = string
-  default     = "t3.micro"
+variable "fargate_cpu" {
+  description = "CPU units for the Fargate task (256 = 0.25 vCPU)"
+  type        = number
+  default     = 256
+}
+
+variable "fargate_memory" {
+  description = "Memory (MiB) for the Fargate task"
+  type        = number
+  default     = 512
 }
 
 variable "vpc_cidr" {
