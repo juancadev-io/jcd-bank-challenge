@@ -91,7 +91,7 @@ module "monitoring" {
 }
 
 module "compute" {
-  source = "./modules/compute"
+  source                = "./modules/compute"
   name_prefix           = local.name_prefix
   cpu                   = var.fargate_cpu
   memory                = var.fargate_memory
