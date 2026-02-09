@@ -20,7 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ecr_repository_url: ${{ steps.tf.outputs.ecr_repository_url }}
-      ec2_instance_id: ${{ steps.tf.outputs.ec2_instance_id }}
+      ecs_cluster_name: ${{ steps.tf.outputs.ecs_cluster_name }}
+      ecs_service_name: ${{ steps.tf.outputs.ecs_service_name }}
       api_gateway_url: ${{ steps.tf.outputs.api_gateway_url }}
     defaults:
       run:
@@ -48,7 +49,8 @@ jobs:
         id: tf
         run: |
           echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-          echo "ec2_instance_id=$(terraform output -raw ec2_instance_id)" >> $GITHUB_OUTPUT
+          echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+          echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
 
   deploy:
@@ -90,23 +92,19 @@ jobs:
           docker push $ECR_REPO_URL:$IMAGE_TAG
           docker push $ECR_REPO_URL:latest
 
-      - name: Deploy to EC2 via SSM
+      - name: Deploy to ECS Fargate
         env:
-          INSTANCE_ID: ${{ needs.read-outputs.outputs.ec2_instance_id }}
+          CLUSTER_NAME: ${{ needs.read-outputs.outputs.ecs_cluster_name }}
+          SERVICE_NAME: ${{ needs.read-outputs.outputs.ecs_service_name }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["/home/ec2-user/update-backend.sh"]' \
-            --query "Command.CommandId" \
-            --output text)
-          echo "SSM Command ID: $COMMAND_ID"
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "$INSTANCE_ID" || true
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "$INSTANCE_ID"
+          aws ecs update-service \
+            --cluster "$CLUSTER_NAME" \
+            --service "$SERVICE_NAME" \
+            --force-new-deployment
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME"
 
       - name: Health check
         env:
