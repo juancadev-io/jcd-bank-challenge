@@ -3,9 +3,15 @@ set -euxo pipefail
 
 exec > >(tee /var/log/user-data.log) 2>&1
 
-# Install Docker and CloudWatch Agent
+# Install Docker, SSM Agent, and CloudWatch Agent
 dnf update -y
-dnf install -y docker amazon-cloudwatch-agent
+dnf install -y docker amazon-cloudwatch-agent amazon-ssm-agent
+
+# Start SSM Agent first (needed for remote access)
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+
+# Start Docker
 systemctl enable docker
 systemctl start docker
 usermod -aG docker ec2-user
