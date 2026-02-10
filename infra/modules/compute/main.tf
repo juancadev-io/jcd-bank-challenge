@@ -82,9 +82,7 @@ resource "aws_ecs_service" "backend" {
   }
 
   service_registries {
-    registry_arn   = var.cloud_map_service_arn
-    container_name = "backend"
-    container_port = 8080
+    registry_arn = var.cloud_map_service_arn
   }
 
   tags = { Name = "${var.name_prefix}-backend-service" }
