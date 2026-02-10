@@ -39,6 +39,14 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "ENCRYPTION_KEY", value = var.encryption_key },
       ]
 
+      healthCheck = {
+        command     = ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      }
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -62,6 +70,11 @@ resource "aws_ecs_service" "backend" {
 
   force_new_deployment = true
 
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [var.security_group_id]
@@ -69,7 +82,9 @@ resource "aws_ecs_service" "backend" {
   }
 
   service_registries {
-    registry_arn = var.cloud_map_service_arn
+    registry_arn   = var.cloud_map_service_arn
+    container_name = "backend"
+    container_port = 8080
   }
 
   tags = { Name = "${var.name_prefix}-backend-service" }
