@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   deploy:
@@ -40,5 +41,36 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Find latest validate workflow run
+        id: find-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=$(gh run list \
+            --workflow="validate-infra.yml" \
+            --status=success \
+            --limit=1 \
+            --json databaseId \
+            --jq '.[0].databaseId')
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "Found validate run: $RUN_ID"
+
+      - name: Download plan from validate
+        id: download-plan
+        if: steps.find-run.outputs.run_id != ''
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: terraform-plan
+          path: infra/
+          run-id: ${{ steps.find-run.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Terraform Plan (fallback)
+        if: steps.download-plan.outcome != 'success'
+        run: |
+          echo "No plan artifact found, generating fresh plan..."
+          terraform plan -out=tfplan
+
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        run: terraform apply tfplan
