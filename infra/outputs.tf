@@ -28,14 +28,9 @@ output "ecr_repository_url" {
   value       = module.ecr.repository_url
 }
 
-output "ecs_cluster_name" {
-  description = "ECS cluster name"
-  value       = module.compute.cluster_name
-}
-
-output "ecs_service_name" {
-  description = "ECS service name"
-  value       = module.compute.service_name
+output "ec2_instance_id" {
+  description = "EC2 instance ID (for SSM commands)"
+  value       = module.compute.instance_id
 }
 
 output "vpc_id" {

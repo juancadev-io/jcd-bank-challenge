@@ -1,11 +1,7 @@
-output "cluster_name" {
-  value = aws_ecs_cluster.main.name
+output "instance_id" {
+  value = aws_instance.backend.id
 }
 
-output "service_name" {
-  value = aws_ecs_service.backend.name
-}
-
-output "cluster_arn" {
-  value = aws_ecs_cluster.main.arn
+output "private_ip" {
+  value = aws_instance.backend.private_ip
 }

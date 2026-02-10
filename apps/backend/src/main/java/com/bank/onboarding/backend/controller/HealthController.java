@@ -20,7 +20,7 @@ public class HealthController {
         response.put("message", "Server is running");
         response.put("timestamp", LocalDateTime.now());
         response.put("service", "Bank Onboarding API");
-        response.put("version", "1.1.0");
+        response.put("version", "1.0.0");
 
         return ResponseEntity.ok(response);
     }

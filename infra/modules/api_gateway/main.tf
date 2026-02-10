@@ -12,7 +12,7 @@ resource "aws_apigatewayv2_api" "main" {
   tags = { Name = "${var.name_prefix}-api" }
 }
 
-# --- Cloud Map (service discovery for VPC Link — ECS registers automatically) ---
+# --- Cloud Map (service discovery for VPC Link) ---
 
 resource "aws_service_discovery_http_namespace" "main" {
   name = var.name_prefix
@@ -23,6 +23,16 @@ resource "aws_service_discovery_http_namespace" "main" {
 resource "aws_service_discovery_service" "backend" {
   name         = "backend"
   namespace_id = aws_service_discovery_http_namespace.main.id
+}
+
+resource "aws_service_discovery_instance" "backend" {
+  instance_id = "backend-ec2"
+  service_id  = aws_service_discovery_service.backend.id
+
+  attributes = {
+    AWS_INSTANCE_IPV4 = var.ec2_private_ip
+    AWS_INSTANCE_PORT = "8080"
+  }
 }
 
 # --- VPC Link + Integration ---

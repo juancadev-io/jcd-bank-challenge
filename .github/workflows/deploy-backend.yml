@@ -20,8 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ecr_repository_url: ${{ steps.tf.outputs.ecr_repository_url }}
-      ecs_cluster_name: ${{ steps.tf.outputs.ecs_cluster_name }}
-      ecs_service_name: ${{ steps.tf.outputs.ecs_service_name }}
+      ec2_instance_id: ${{ steps.tf.outputs.ec2_instance_id }}
       api_gateway_url: ${{ steps.tf.outputs.api_gateway_url }}
     defaults:
       run:
@@ -49,8 +48,7 @@ jobs:
         id: tf
         run: |
           echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-          echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
-          echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+          echo "ec2_instance_id=$(terraform output -raw ec2_instance_id)" >> $GITHUB_OUTPUT
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
 
   deploy:
@@ -92,37 +90,38 @@ jobs:
           docker push $ECR_REPO_URL:$IMAGE_TAG
           docker push $ECR_REPO_URL:latest
 
-      - name: Deploy to ECS Fargate
+      - name: Deploy to EC2 via SSM
         env:
-          CLUSTER_NAME: ${{ needs.read-outputs.outputs.ecs_cluster_name }}
-          SERVICE_NAME: ${{ needs.read-outputs.outputs.ecs_service_name }}
+          INSTANCE_ID: ${{ needs.read-outputs.outputs.ec2_instance_id }}
         run: |
-          aws ecs update-service \
-            --cluster "$CLUSTER_NAME" \
-            --service "$SERVICE_NAME" \
-            --force-new-deployment
-          echo "Waiting for ECS service to stabilize..."
-          aws ecs wait services-stable \
-            --cluster "$CLUSTER_NAME" \
-            --services "$SERVICE_NAME"
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["/home/ec2-user/update-backend.sh"]' \
+            --query "Command.CommandId" \
+            --output text)
+          echo "SSM Command ID: $COMMAND_ID"
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID"
 
       - name: Health check
         env:
           API_URL: ${{ needs.read-outputs.outputs.api_gateway_url }}
         run: |
           echo "Waiting for backend to start..."
-          sleep 60
-          for i in $(seq 1 15); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/health" || true)
+          sleep 30
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/actuator/health" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy!"
-              curl -s "$API_URL/api/health" | head -c 500
               exit 0
             fi
-            echo "Attempt $i/15: status=$STATUS, retrying in 10s..."
+            echo "Attempt $i: status=$STATUS, retrying in 10s..."
             sleep 10
           done
-          echo "Health check failed after 15 attempts"
-          echo "Last response:"
-          curl -sv "$API_URL/api/health" 2>&1 | tail -20
+          echo "Health check failed after 10 attempts"
           exit 1
