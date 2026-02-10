@@ -1,89 +1,103 @@
-# --- ECS Fargate Cluster + Service ---
+resource "aws_instance" "backend" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.security_group_id]
+  iam_instance_profile   = var.instance_profile_name
 
-resource "aws_ecs_cluster" "main" {
-  name = "${var.name_prefix}-cluster"
+  user_data = templatefile("${path.module}/user_data.tftpl", {
+    aws_region         = var.aws_region
+    ecr_repository_url = var.ecr_repository_url
+    ecr_registry_url   = split("/", var.ecr_repository_url)[0]
+    encryption_key     = var.encryption_key
+    log_group_name     = var.log_group_name
+    metrics_namespace  = var.metrics_namespace
+  })
 
-  setting {
-    name  = "containerInsights"
-    value = "disabled"
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
   }
 
-  tags = { Name = "${var.name_prefix}-cluster" }
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  tags = { Name = "${var.name_prefix}-backend" }
 }
 
-resource "aws_ecs_task_definition" "backend" {
-  family                   = "${var.name_prefix}-backend"
-  requires_compatibilities = ["FARGATE"]
-  network_mode             = "awsvpc"
-  cpu                      = var.cpu
-  memory                   = var.memory
-  execution_role_arn       = var.execution_role_arn
-  task_role_arn            = var.task_role_arn
+# --- Schedule: auto start/stop to save costs ---
+# Monday-Friday 8am-5pm Colombia time (America/Bogota)
 
-  container_definitions = jsonencode([
-    {
-      name      = "backend"
-      image     = "${var.ecr_repository_url}:latest"
-      essential = true
+resource "aws_iam_role" "scheduler" {
+  name = "${var.name_prefix}-ec2-scheduler"
 
-      portMappings = [
-        {
-          containerPort = 8080
-          protocol      = "tcp"
-        }
-      ]
-
-      environment = [
-        { name = "SERVER_PORT", value = "8080" },
-        { name = "SPRING_PROFILES_ACTIVE", value = "prod" },
-        { name = "ENCRYPTION_KEY", value = var.encryption_key },
-      ]
-
-      healthCheck = {
-        command     = ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 60
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "scheduler.amazonaws.com" }
+        Action    = "sts:AssumeRole"
       }
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = var.log_group_name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "backend"
-        }
-      }
-    }
-  ])
-
-  tags = { Name = "${var.name_prefix}-backend-task" }
+    ]
+  })
 }
 
-resource "aws_ecs_service" "backend" {
-  name            = "${var.name_prefix}-backend"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.backend.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+resource "aws_iam_role_policy" "scheduler" {
+  name = "ec2-start-stop"
+  role = aws_iam_role.scheduler.id
 
-  force_new_deployment = true
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:StartInstances", "ec2:StopInstances"]
+        Resource = aws_instance.backend.arn
+      }
+    ]
+  })
+}
 
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
+resource "aws_scheduler_schedule" "start_ec2" {
+  name = "${var.name_prefix}-start-ec2"
+
+  flexible_time_window {
+    mode = "OFF"
   }
 
-  network_configuration {
-    subnets          = var.private_subnet_ids
-    security_groups  = [var.security_group_id]
-    assign_public_ip = false
+  schedule_expression          = "cron(0 8 ? * MON-FRI *)"
+  schedule_expression_timezone = "America/Bogota"
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:ec2:startInstances"
+    role_arn = aws_iam_role.scheduler.arn
+
+    input = jsonencode({
+      InstanceIds = [aws_instance.backend.id]
+    })
+  }
+}
+
+resource "aws_scheduler_schedule" "stop_ec2" {
+  name = "${var.name_prefix}-stop-ec2"
+
+  flexible_time_window {
+    mode = "OFF"
   }
 
-  service_registries {
-    registry_arn = var.cloud_map_service_arn
-  }
+  schedule_expression          = "cron(0 17 ? * MON-FRI *)"
+  schedule_expression_timezone = "America/Bogota"
 
-  tags = { Name = "${var.name_prefix}-backend-service" }
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:ec2:stopInstances"
+    role_arn = aws_iam_role.scheduler.arn
+
+    input = jsonencode({
+      InstanceIds = [aws_instance.backend.id]
+    })
+  }
 }

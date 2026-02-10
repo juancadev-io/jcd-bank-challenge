@@ -65,45 +65,48 @@ module "ecr" {
   name_prefix = local.name_prefix
 }
 
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  name_prefix       = local.name_prefix
+  environment       = var.environment
+  instance_id       = module.compute.instance_id
+  alarm_email       = var.alarm_email
+  metrics_namespace = "${local.name_prefix}/CWAgent"
+}
+
 module "iam" {
   source = "./modules/iam"
 
-  name_prefix = local.name_prefix
+  name_prefix   = local.name_prefix
+  ecr_repo_arn  = module.ecr.repository_arn
+  log_group_arn = module.monitoring.log_group_arn
+}
+
+module "compute" {
+  source = "./modules/compute"
+
+  name_prefix           = local.name_prefix
+  instance_type         = var.ec2_instance_type
+  ami_id                = data.aws_ami.amazon_linux_2023.id
+  subnet_id             = module.networking.private_subnet_ids[0]
+  security_group_id     = module.security.ec2_security_group_id
+  instance_profile_name = module.iam.instance_profile_name
+  ecr_repository_url    = module.ecr.repository_url
+  aws_region            = var.aws_region
+  encryption_key        = var.encryption_key
+  log_group_name        = module.monitoring.log_group_name
+  metrics_namespace     = "${local.name_prefix}/CWAgent"
 }
 
 module "api_gateway" {
   source = "./modules/api_gateway"
 
   name_prefix                = local.name_prefix
+  ec2_private_ip             = module.compute.private_ip
   private_subnet_ids         = module.networking.private_subnet_ids
   vpc_link_security_group_id = module.security.vpc_link_security_group_id
   log_group_arn              = module.monitoring.api_gateway_log_group_arn
-}
-
-module "monitoring" {
-  source = "./modules/monitoring"
-
-  name_prefix  = local.name_prefix
-  environment  = var.environment
-  cluster_name = module.compute.cluster_name
-  service_name = module.compute.service_name
-  alarm_email  = var.alarm_email
-}
-
-module "compute" {
-  source                = "./modules/compute"
-  name_prefix           = local.name_prefix
-  cpu                   = var.fargate_cpu
-  memory                = var.fargate_memory
-  private_subnet_ids    = module.networking.private_subnet_ids
-  security_group_id     = module.security.ecs_security_group_id
-  execution_role_arn    = module.iam.execution_role_arn
-  task_role_arn         = module.iam.task_role_arn
-  ecr_repository_url    = module.ecr.repository_url
-  aws_region            = var.aws_region
-  encryption_key        = var.encryption_key
-  log_group_name        = module.monitoring.log_group_name
-  cloud_map_service_arn = module.api_gateway.cloud_map_service_arn
 }
 
 module "storage" {

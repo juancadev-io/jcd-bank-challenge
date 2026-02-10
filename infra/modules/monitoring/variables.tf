@@ -6,15 +6,15 @@ variable "environment" {
   type = string
 }
 
-variable "cluster_name" {
-  type = string
-}
-
-variable "service_name" {
+variable "instance_id" {
   type = string
 }
 
 variable "alarm_email" {
   type    = string
   default = ""
+}
+
+variable "metrics_namespace" {
+  type = string
 }

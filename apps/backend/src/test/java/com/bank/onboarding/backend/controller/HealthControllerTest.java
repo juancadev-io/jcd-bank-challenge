@@ -21,7 +21,7 @@ class HealthControllerTest {
                 .andExpect(jsonPath("$.status").value("ok"))
                 .andExpect(jsonPath("$.message").value("Server is running"))
                 .andExpect(jsonPath("$.service").value("Bank Onboarding API"))
-                .andExpect(jsonPath("$.version").value("1.1.0"))
+                .andExpect(jsonPath("$.version").value("1.0.0"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
