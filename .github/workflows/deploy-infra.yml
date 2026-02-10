@@ -40,5 +40,8 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Taint EC2 instance to force recreation
+        run: terraform taint module.compute.aws_instance.backend || true
+
       - name: Terraform Apply
         run: terraform apply -auto-approve
