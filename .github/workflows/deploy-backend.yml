@@ -111,15 +111,18 @@ jobs:
           API_URL: ${{ needs.read-outputs.outputs.api_gateway_url }}
         run: |
           echo "Waiting for backend to start..."
-          sleep 30
-          for i in $(seq 1 10); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/actuator/health" || true)
+          sleep 60
+          for i in $(seq 1 15); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/health" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy!"
+              curl -s "$API_URL/api/health" | head -c 500
               exit 0
             fi
-            echo "Attempt $i: status=$STATUS, retrying in 10s..."
+            echo "Attempt $i/15: status=$STATUS, retrying in 10s..."
             sleep 10
           done
-          echo "Health check failed after 10 attempts"
+          echo "Health check failed after 15 attempts"
+          echo "Last response:"
+          curl -sv "$API_URL/api/health" 2>&1 | tail -20
           exit 1
